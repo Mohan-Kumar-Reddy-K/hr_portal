@@ -1,0 +1,5 @@
+{
+  "python.defaultInterpreterPath": "C:/Users/<you>/anaconda3/envs/resume-portal/python.exe",
+  "python.analysis.typeCheckingMode": "basic",
+  "editor.formatOnSave": true
+}
