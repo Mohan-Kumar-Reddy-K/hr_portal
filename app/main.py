@@ -1,26 +1,29 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from bson import ObjectId
-import numpy as np
+from fastapi import FastAPI, UploadFile, File # FastAPI → Used to create your backend application & UploadFile & File → Used to receive uploaded files
+# UploadFile is Memory-efficient: Stores small files in memory and automatically spools larger files to a temporary disk
+# File is Memory-intensive: Reads the entire file content into memory as bytes before your endpoint function is even called
+from fastapi.middleware.cors import CORSMiddleware # to allow requests from different domains (front-end apps)
+from bson import ObjectId # Imports MongoDB object ID type
+import numpy as np # to convert embeddings to arrays for similarity scoring
 
-from app.config import settings
-from app.db import candidates_coll
-from app.models import UploadResponse, MatchIn
-from app.parsers import extract_text, guess_name, find_email, find_phone, normalize_skills
-from app.matching import embed, score_candidate
+from app.config import settings # Loads configurations, like MongoDB URI, DB name, CORS origins, etc.
+from app.db import candidates_coll # function that returns "candidates"
+from app.models import UploadResponse, MatchIn # objects from models
+from app.parsers import extract_text, guess_name, find_email, find_phone, normalize_skills # objects
+from app.matching import embed, score_candidate # objects
 
-app = FastAPI(title="Resume Matcher (Core, MongoDB)")
+app = FastAPI(title="Resume Matcher (Core, MongoDB)") # title is shown in docs (Swagger)
 
+# Allows frontend applications to call backend API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.CORS_ORIGINS] if settings.CORS_ORIGINS != "*" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
+) 
 
 # ---------- upload ----------
-@app.post("/upload", response_model=UploadResponse)
+@app.post("/upload", response_model=UploadResponse) # Creates POST endpoint → /upload
 async def upload_resume(file: UploadFile = File(...)):
     data = await file.read()
     text = extract_text(data, file.filename)
@@ -31,6 +34,7 @@ async def upload_resume(file: UploadFile = File(...)):
     skills = normalize_skills(text)
     vec = embed(text).tolist()
 
+    #Inserts document into MongoDB
     res = candidates_coll().insert_one({
         "full_name": name,
         "email": email,
@@ -40,6 +44,7 @@ async def upload_resume(file: UploadFile = File(...)):
         "embedding": vec
     })
 
+    #Returns structured response
     return UploadResponse(
         status="ok",
         candidate_id=str(res.inserted_id),
